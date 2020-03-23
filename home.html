@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title></title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- <link rel="stylesheet" href="style.css"> -->
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+        
+        <style>
+            #compare-table{
+                /* color: white */
+
+            }
+           
+        </style>
+    </head>
+    <!-- <body style="background-color:  #364061;" id="compareBody"> -->
+        <br><br>
+        <div class="content container-fluid">
+               
+            <div class="row">
+                <div class="col col-lg-9">
+                        
+                    <div class="container--wrap">
+                        <!-- <p style="color: #DFDFEF; font-size: 30px; text-align: center; padding-top: 15px; font-weight: bolder; margin-bottom: 0;">
+                                Compare Regions</p> -->
+                        <!-- <p style="color: #DFDFEF; font-size: 12px; text-align: center; font-weight: bolder; margin-bottom: 0;">
+                            Listed from first day with 100+ cases
+                        </p> -->
+                        <h3 style="text-align: center">
+                                Compare Regions
+                        </h3>
+                        <h5 style="text-align: center">
+                                Listed from first day with 100+ cases
+                        </h5>
+                        <div class = "row m-0" id="compare-select-row">
+                            <div class="col">
+                                <select class="form-control compare-select" id="regionSelect0">
+                                </select>
+                            </div>
+                            <div class="col">
+                                <select class="form-control compare-select" id="regionSelect1">
+                                </select>
+                            </div>
+
+                        </div>
+                        <div class="row m-0">
+                            <div class="container--wrap col">
+                                   
+                                    <table class="table table-sm" id="compare-table">
+                                        <thead id="compare-table-header">
+                                            <tr id="compare-table-header-row">
+                                                <th colspan="2" id="regionLabel0" style="width: 50%">Country 1</th>
+                                                <th colspan="2" id="regionLabel1"  style="width: 50%">Country 2</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody  id="compare-table-body">
+                                        </tbody>
+                                    </table>
+                            </div>
+                        </div>
+                       
+                    </div>
+                </div>
+                <div class="col col-lg-9"></div>
+            </div>
+        </div>
+        
+        <script async defer>
+
+            var infectionsData = [];
+            var infectionsData100Start = [];
+            var optionsText = [];
+            // var rgb_baseline = [68, 81, 117];
+            //var rgb_diff = [80, -70, -106];
+            var rgb_baseline = [255, 255, 255];
+            var rgb_diff = [-100, -230, -230];
+            var v0 = 0;
+            var vn = 10000;
+
+            async function getTimeData() {
+                // const myHeaders = new Headers({'Access-Control-Allow-Origin': '*'});
+                // fetch("https://github.com/heremaps/here-covid-19-tracker/blob/master/covid-scraper/src/download.js", {headers:myHeaders})
+                //     .then(r => {return r.text()})
+                //     .then(data => {console.log(data);})
+
+
+
+
+
+                const sheets = ["Confirmed", "Recovered", "Deaths"]
+
+                const sheetQueries = await fetch(`https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv`)
+                    .then(d => d.text());
+
+
+                lines = sheetQueries.split('\n')
+                regionData = {}
+                datesList = lines[0].split(',').slice(4)
+                dayCount = datesList.length
+                lines.slice(1).forEach(l => {
+                    l = l.replace(", ", "-").replace('"', "")
+                    cols = l.split(',')
+                    region = cols[1]
+                    subregion = cols[0]
+                    casesList = cols.slice(4)
+
+                    if(region in regionData) {
+                        regionData[region][subregion] = casesList.map(c => parseInt(c))
+                    } else {
+                        regionData[region] = {}
+                        regionData[region][subregion] = casesList.map(c => parseInt(c))
+                    }
+                })
+
+                viewRegionData = {}
+
+
+                for(region in regionData){
+
+                    currRegionData = regionData[region]
+
+                    // if subregions exist
+                    if (!( "" in currRegionData)) {
+                        // find the totals for the region
+                        totalsList = Array(dayCount).fill(0)
+
+                        for(subregion in currRegionData) {
+                            currSubregionCasesList = currRegionData[subregion];
+                            for (i=0; i<dayCount; i++) {
+                                totalsList[i] += currSubregionCasesList[i];
+                            }
+                        }
+
+                        regionData[region][''] = totalsList
+                    }
+                }
+
+
+                return [datesList, regionData]
+            }
+
+            function flatten2dDict(dict){
+                flatDict = {}
+                for(key in dict){
+                    currVal = dict[key]
+
+                    for(key2 in currVal) {
+
+                        // represents a total
+                        if(key2 == '') {
+                            flatDict[key] = currVal[key2]
+                        } else {
+                            flatDict[key2] = currVal[key2]
+                        }
+                    }
+                }
+                return flatDict
+            }
+
+            function zipArrays(a, b) {
+                zipped = []
+
+                for(i=0; i<Math.min(a.length, b.length); i++) {
+                    zipped.push([a[i], b[i]])
+                }
+
+                return zipped
+            }
+
+            function zipArrToDictValsArr(arr, dict) {
+                for(key in dict){
+                    dict[key] = zipArrays(arr, dict[key])
+                }
+
+                return dict
+            }
+
+            function getInfectionsData() {
+                d = {
+                    "US_fake":
+                    [
+                    [	"3/5", 75],
+                    [	"3/6", 81],
+                    [	"3/7", 84],
+                    [	"3/8", 85],
+                    [	"3/9", 90],
+                    [	"3/10", 95],
+                    [	"3/11", 101],
+                    [	"3/12", 108],
+                    [	"3/13", 116],
+                    [	"3/14", 216],
+                    [	"3/15", 316],
+                    [	"3/16", 416],
+                    [	"3/17", 616],
+                    [	"3/18", 816],
+                    [	"3/19", 996]
+                    ]
+                ,
+                "UK_fake" :
+                    [
+                    [	"3/5", 57],
+                    [	"3/6", 60],
+                    [	"3/7", 62],
+                    [	"3/8", 65],
+                    [	"3/9", 70],
+                    [	"3/10", 75],
+                    [	"3/11", 81],
+                    [	"3/12", 88],
+                    [	"3/13", 96],
+                    [	"3/14", 102],
+                    [	"3/15", 106],
+                    [	"3/16", 116],
+                    [	"3/17", 246],
+                    [	"3/18", 356]
+                    ]
+                ,
+                "Eur_fake":
+                    [
+                    [	"2/5", 95],
+                    [	"2/6", 110],
+                    [	"2/7", 112],
+                    [	"2/8", 115],
+                    [	"2/9", 120],
+                    [	"2/10", 125],
+                    [	"2/11", 131],
+                    [	"2/12", 138],
+                    [	"2/13", 146]
+                    ]
+                }
+                return d;
+            }
+
+            function compareSelectOnChange(event) {
+                let element = event.target;
+                let value = element.options[element.selectedIndex].innerText;
+                document.getElementById("regionLabel" + element.data).innerText = value;
+
+                fillCompareTableNewCountry([...element.parentNode.parentNode.children].map(x => x.firstElementChild.value));
+
+                console.log("all selects")
+                console.log(element.parentNode.parentNode.children)
+                console.log(element.parentNode.parentNode)
+                console.log([...element.parentNode.parentNode.children].map(x => x.firstElementChild.value))
+            }
+
+            function fillCompareOptions() {
+                let row = document.getElementById("compare-select-row");
+
+                row_i = 0;
+                for (let col of row.children) {
+                    let select = col.firstElementChild;
+                    select.addEventListener("change", compareSelectOnChange)
+                    select.data = row_i++;                  
+
+                    optionsText.forEach((o,i) => {
+                        let opt = document.createElement("option");
+                        opt.innerText = o;
+                        opt.value = i;
+                        select.add(opt);
+                    })
+                }
+
+
+            }
+
+            function fillCompareTableHeader() {
+                let headerRow = document.getElementById("compare-table-header-row");
+
+                for(let h of headerRow.children) {
+                    h.innerText = optionsText[0]
+                }
+
+            }
+
+            function fillCompareTable() {
+                let rgb_baseline = [68, 81, 117];
+                let rgb_diff = [80, -70, -106];
+                let v0 = 0;
+                let vn = 100000;
+
+                colCount = 2
+                fillCompareTableNewCountry(Array(colCount).fill(0));
+            }
+
+            function get100CaseSubarray(singleCountryData) {
+                l = singleCountryData.length
+                first100Index = -1
+
+                // iterate each day, tracking whether a 100+ day has been found
+                i = 0
+                while(first100Index == -1 && i<l) {
+
+                    if(singleCountryData[i][1] >= 100) {
+                        first100Index = i
+                    }
+                    i++
+                }
+
+                // if there was no day with 100 cases, use empty array
+                // else use the subarray of 100+ cases
+
+                return (first100Index == -1) ? [] : singleCountryData.slice(first100Index);
+            }
+
+            function fillCompareTableNewCountry(selectedCountriesIndeciesList) {
+
+                selectedCountriesNamesList = selectedCountriesIndeciesList.map(x => optionsText[x])
+                colCount = selectedCountriesIndeciesList.length
+
+                // TODO: make global reference                
+                let table = document.getElementById("compare-table-body");
+
+                // for each selected country, find the index of the 1st day at 100+ cases
+                // and save the subarray with 100 or more cases
+                selectedCountriesIndeciesList.forEach(ci => {
+                    // use the stored global result if it has already been computed
+                    if(infectionsData100Start[ci].length == 0){
+                        infectionsData100Start[ci] = get100CaseSubarray(infectionsData[optionsText[ci]])
+                    }
+                })
+
+                selectedCountriesData100Start = selectedCountriesIndeciesList.map(x => infectionsData100Start[x])
+
+                // add in blank entries to make all country arrays the same length
+                displayDaysCount = Math.max(...(selectedCountriesData100Start.map(x => x.length)))
+
+                for(j=0; j<colCount; j++) {
+                    l = selectedCountriesData100Start[j].length;
+                    if(l<displayDaysCount) {
+                        selectedCountriesData100Start[j] = selectedCountriesData100Start[j].concat(Array(displayDaysCount - l).fill(["", ""]))
+                    }
+                }
+
+                // clear the existing table
+                
+                tableParent = document.getElementById('compare-table');
+                table.remove();
+                table = document.createElement("tbody");
+                table.id = 'compare-table-body'
+                tableParent.appendChild(table)
+
+                // display the data
+                // iterate rows
+                for(i=0; i<displayDaysCount; i++) {
+
+                    let row = table.insertRow();
+
+                    // iterate countries(columns)
+                    for(j=0; j<colCount; j++) {
+                        // add the cell for the date
+                        let dateCell = row.insertCell();
+                        dateCell.innerText = selectedCountriesData100Start[j][i][0];
+                        
+                        // add the cell for the number of cases
+                        let casesCell = row.insertCell();
+                        v = selectedCountriesData100Start[j][i][1];
+                        casesCell.innerText = v;
+
+                        // color the cell based on case count
+                        let v_scaled = Math.log(1 + Math.max(0, Math.min(1, (v - v0) / (vn - v0))));
+                        let rgb_v = [0, 1, 2].map(x => rgb_baseline[x] + (rgb_diff[x] * v_scaled));
+                        casesCell.style.background = 'rgb(' + rgb_v.join(', ') + ')';
+                    }
+                }
+            }
+
+            window.onload = async function() {
+                // infectionsData = getInfectionsData();
+
+
+
+                [datesList, timesData2dDict] = await getTimeData();
+                timesDataFlatDict = flatten2dDict(timesData2dDict)
+                console.log(timesDataFlatDict.Wisconsin);
+                zipped = zipArrToDictValsArr(datesList, timesDataFlatDict)
+                console.log(zipped)
+                infectionsData = zipped
+                console.log(zipped.Thailand)
+
+
+                infectionsData100Start = Array(Object.keys(infectionsData).length).fill([])
+                optionsText = Object.keys(infectionsData)
+                fillCompareOptions();
+                fillCompareTableHeader();
+                fillCompareTable();
+                
+
+            }
+        </script>
+    </body>
+</html>
